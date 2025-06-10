@@ -37,8 +37,8 @@ BUILD_DATE=$(TZ=Asia/Jakarta date +"%Y%m%d-%H%M")
 # Kernel revision
 KERNELRELEASE=surya
 
-# Clone AOSP Clang
-function clang() {
+# Clone Neutron Clang
+clangX() {
 export PATH="$COMPILERDIR/bin:$PATH"
 
 if ! [ -d "$COMPILERDIR" ]; then
@@ -154,6 +154,7 @@ fixcilto() {
 }
 
 ## Start the kernel buildflow ##
+clangX
 setversioning
 fixcilto
 tg_channelcast "<b>CI Build Triggered</b>" \
