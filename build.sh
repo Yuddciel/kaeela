@@ -115,22 +115,36 @@ MAKE="./makeparallel"
     DTC_EXT=dtc \
     CROSS_COMPILE=aarch64-linux-gnu- \
     CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee log.txt
-
+    
+    # Check if compilation is done successfully.
+    if ! [ -f "${OUTFILE}" ]; then
+	    END=$(date +"%s")
+	    DIFF=$(( END - START ))
+	    echo -e "Kernel compilation failed, See buildlog to fix errors"
+	    tg_channelcast "Build for ${DEVICE} <b>failed</b> in $((DIFF / 60)) minute(s) and $((DIFF % 60)) second(s)! Check ${CIPROVIDER} for errors!"
+	    exit 1
+    fi    
 }
 
 # Ship the compiled kernel
 shipkernel() {
-    cp "${OUTDIR}"/arch/arm64/boot/Image.gz-dtb "${ANYKERNEL}"/
-
-    cd "${ANYKERNEL}" || exit
-    zip -r9 "${TEMPZIPNAME}" *
-
-    curl -sLo zipsigner-3.0.jar https://raw.githubusercontent.com/baalajimaestro/AnyKernel2/master/zipsigner-3.0.jar
-    java -jar zipsigner-3.0.jar ${TEMPZIPNAME} ${ZIPNAME}
-
-    "${TELEGRAM}" -f "$ZIPNAME" -c "${CI_CHANNEL}"
-
-    cd ..
+    # Zipping
+    if [ -f out/arch/arm64/boot/Image ] ; then
+            echo -e "$green=============================================\033[0m"
+            echo -e "$green= [+] Zipping up ...\033[0m"
+            echo -e "$green=============================================\033[0m"
+    if [ -d "$AK3_DIR" ]; then
+            cp -r $AK3_DIR AnyKernel3
+        elif ! git clone -q https://github.com/rinnsakaguchi/AnyKernel3.git -b FSociety; then
+                echo -e "\nAnyKernel3 repo not found locally and couldn't clone from GitHub! Aborting..."
+        fi
+            cp $kernel $dtb $dtbo AnyKernel3
+            cd AnyKernel3
+            git checkout FSociety &> /dev/null
+            zip -r9 "../$ZIPNAME" * -x .git README.md *placeholder
+            cd ..
+            rm -rf AnyKernel3
+    fi
 }
 
 # Ship China firmware builds
@@ -157,7 +171,7 @@ fixcilto() {
 clangX
 setversioning
 fixcilto
-tg_channelcast "<b>CI Build Triggered</b>" \
+tg_channelcast "<b>Kernel Build Triggered</b>" \
         "Compiler: <code>${COMPILER_STRING}</code>" \
         "Model: ${MODEL}" \
 	"Device: ${DEVICE}" \
@@ -168,6 +182,7 @@ tg_channelcast "<b>CI Build Triggered</b>" \
 	"Commit point: <code>${COMMIT_POINT}</code>" \
 	"Clocked at: <code>$(date +%Y%m%d-%H%M)</code>"
 START=$(date +"%s")
+
 build_kernel || exit 1
 shipkernel
 setver2
